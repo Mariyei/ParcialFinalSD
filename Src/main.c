@@ -21,7 +21,8 @@
 #define RW 0x02   // PC1
 #define EN 0x08   // PC3
 
-void delay_ms(uint16_t n);
+//Funciones
+void delay_ms(uint32_t n);
 void LCD_command (unsigned char command);
 void LCD_data (char data);
 void LCD_init(void);
@@ -32,8 +33,9 @@ uint8_t USART2_read (void);
 void USART2_Putstring(uint8_t* stringptr);
 void USART2_PutstringE(uint8_t* stringptr);
 
+//Variables para display 7  segmentos
 volatile uint8_t display_index = 0;
-#define NUM_0
+#define NUM_0 (0x3F)  //0
 #define NUM_1 (0x06)  //1
 #define NUM_2 (0x5B)  //2
 #define NUM_3 (0x4F)  //3
@@ -44,6 +46,9 @@ volatile uint8_t display_index = 0;
 #define NUM_8 (0x7F)  //8
 #define NUM_9 (0x67)  //9
 
+//Variables para LCD
+volatile uint32_t msTicks = 0;
+volatile uint32_t tim2_msTicks = 0;
 
 int main(void)
 {
@@ -85,6 +90,7 @@ int main(void)
 
 	}*/
 
+	TIM2config();
 //SysTick
 	/*
 	 Systickconfig ();
@@ -100,11 +106,9 @@ int main(void)
 
 }
 
-void delay_ms(uint16_t n)
-{
-  uint16_t i;
-  for(;n>0;n--)
-  	  for(i=0; i<140; i++);
+void delay_ms(uint32_t n) {
+    uint32_t currentTicks = tim2_msTicks;
+    while ((tim2_msTicks - currentTicks) < n);
 }
 
 void LCD_init (void) {
@@ -167,7 +171,6 @@ void LCD_command (unsigned  char command) {
 	GPIOC->BSRR = EN;
 	delay_ms(0);
 	GPIOC->BSRR = EN<<16;
-
 	if (command < 4)
 		delay_ms(2);
 	else
@@ -249,16 +252,18 @@ void Systickconfig (void) {
 	//Se limpia
 	SysTick->VAL = 0;
 	//Enable Timer with Processor clock as source
-	SysTick->CTRL |= (1<<2)|(1<<0);
+	SysTick->CTRL |= (1<<2)|(1<<1)|(1<<0);
 
 }
 
 void TIM2config (void) {
-	RCC->APB1ENR |= (1<<0);
-	TIM2->PSC = 1600-1;
-	TIM2->ARR = 10000-1;
+	RCC->APB1ENR |= (1<<0); //Habilita el reloj de  TIM2
+	TIM2->PSC = 16000-1;     //16MHz/16000 = 1 KHz (cada 1ms)
+	TIM2->ARR = 1-1;      //1 * 1 ms = 1ms
 	TIM2->CNT = 0;
 	TIM2->CR1 = (1<<0);
+	TIM2->DIER |= (1<<0);     // Habilitar interrupción de Update
+	NVIC_EnableIRQ(TIM2_IRQn);
 }
 
 void TIM21config (void) {
@@ -314,6 +319,11 @@ void TIM21_IRQHandler() {
 	//Clear UIF flag
 	TIM21->SR &= ~(1<<0);
 
+}
+
+void TIM2_IRQHandler(void) {
+    tim2_msTicks++;
+    TIM2->SR &= ~(1<<0);   // Limpiar UIF
 }
 
 
