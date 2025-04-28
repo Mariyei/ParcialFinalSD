@@ -24,10 +24,12 @@ void LCD_command(unsigned char command);
 void LCD_data(char data);
 void PORTS_init(void);
 void TIM2config(void);
-
+void USART2config();
+void USART2Init();
 
 //Variables globales
-volatile uint8_t lcd_step = 0;
+volatile uint8_t lcd_step = 0; //LCD
+volatile uint8_t current_menu = 0;  // 0 = Menú Principal, 1 = Menú Nuevo; SERIAL
 
 
 void delay_ms(uint32_t n) {
@@ -55,6 +57,9 @@ int main(void) {
 
     //3. Inicializar LCD
     LCD_INIT();
+
+    //4. Inicializar USART
+    USART2Init();
 
 
     //while (1);
@@ -138,70 +143,113 @@ void TIM2config(void) {
 }
 
 void TIM2_IRQHandler(void) {
-    TIM2->SR &= ~(1<<0); // Limpiar UIF
+    TIM2->SR &= ~(1<<0); // Limpiar bandera de actualización (UIF)
 
-    switch (lcd_step) {
-        case 0:
-            LCD_command(0x01);  // Clear Display
-            LCD_command(0x80);  // Cursor a línea 1
-            lcd_step++;
-            break;
-
-        case 1: LCD_data('1'); lcd_step++; break;
-        case 2: LCD_data('.'); lcd_step++; break;
-        case 3: LCD_data('U'); lcd_step++; break;
-        case 4: LCD_data('s'); lcd_step++; break;
-        case 5: LCD_data('u'); lcd_step++; break;
-        case 6: LCD_data('a'); lcd_step++; break;
-        case 7: LCD_data('r'); lcd_step++; break;
-        case 8: LCD_data('i'); lcd_step++; break;
-        case 9: LCD_data('o'); lcd_step++; break;
-        case 10: LCD_data(' '); lcd_step++; break;
-        case 11: LCD_data('y'); lcd_step++; break;
-        case 12: LCD_data(' '); lcd_step++; break;
-        case 13: LCD_data('P'); lcd_step++; break;
-        case 14: LCD_data('I'); lcd_step++; break;
-        case 15: LCD_data('N'); lcd_step++; break;
-
-        case 16:
-            LCD_command(0x01);  // Clear
-            LCD_command(0x80);  // Cursor a línea 1
-            lcd_step++;
-            break;
-
-        case 17: LCD_data('2'); lcd_step++; break;
-        case 18: LCD_data('.'); lcd_step++; break;
-        case 19: LCD_data('C'); lcd_step++; break;
-        case 20: LCD_data('e'); lcd_step++; break;
-        case 21: LCD_data('l'); lcd_step++; break;
-        case 22: LCD_data('u'); lcd_step++; break;
-        case 23: LCD_data('l'); lcd_step++; break;
-        case 24: LCD_data('a'); lcd_step++; break;
-        case 25: LCD_data('r'); lcd_step++; break;
-
-        case 26:
-            LCD_command(0x01);  // Clear
-            LCD_command(0x80);  // Cursor a línea 1
-            lcd_step++;
-            break;
-
-        case 27: LCD_data('3'); lcd_step++; break;
-        case 28: LCD_data('.'); lcd_step++; break;
-        case 29: LCD_data('S'); lcd_step++; break;
-        case 30: LCD_data('e'); lcd_step++; break;
-        case 31: LCD_data('r'); lcd_step++; break;
-        case 32: LCD_data('i'); lcd_step++; break;
-        case 33: LCD_data('a'); lcd_step++; break;
-        case 34: LCD_data('l'); lcd_step++; break;
-
-        case 35:
-            lcd_step = 0; // Reiniciar para mostrar desde 1 otra vez
-            break;
-
-        default:
-            break;
+    if (current_menu == 0) {
+        // Menú principal
+        switch (lcd_step) {
+            case 0: LCD_command(0x01); LCD_command(0x80); break;
+            case 1: LCD_data('1'); break;
+            case 2: LCD_data('.'); break;
+            case 3: LCD_data('U'); break;
+            case 4: LCD_data('s'); break;
+            case 5: LCD_data('u'); break;
+            case 6: LCD_data('a'); break;
+            case 7: LCD_data('r'); break;
+            case 8: LCD_data('i'); break;
+            case 9: LCD_data('o'); break;
+            case 10: LCD_data(' '); break;
+            case 11: LCD_data('y'); break;
+            case 12: LCD_data(' '); break;
+            case 13: LCD_data('P'); break;
+            case 14: LCD_data('I'); break;
+            case 15: LCD_data('N'); break;
+            case 16: LCD_command(0x01); LCD_command(0x80); break;
+            case 17: LCD_data('2'); break;
+            case 18: LCD_data('.'); break;
+            case 19: LCD_data('C'); break;
+            case 20: LCD_data('e'); break;
+            case 21: LCD_data('l'); break;
+            case 22: LCD_data('u'); break;
+            case 23: LCD_data('l'); break;
+            case 24: LCD_data('a'); break;
+            case 25: LCD_data('r'); break;
+            case 26: LCD_command(0x01); LCD_command(0x80); break;
+            case 27: LCD_data('3'); break;
+            case 28: LCD_data('.'); break;
+            case 29: LCD_data('S'); break;
+            case 30: LCD_data('e'); break;
+            case 31: LCD_data('r'); break;
+            case 32: LCD_data('i'); break;
+            case 33: LCD_data('a'); break;
+            case 34: LCD_data('l'); break;
+            case 35: LCD_command(0x01); LCD_command(0x80); break;
+            case 36: lcd_step = 0; break; // Reiniciar al menú principal
+            default: break;
+        }
     }
+    else if (current_menu == 1) {
+        // Menú secundario (cuando recibes '3')
+        switch (lcd_step) {
+            case 0: LCD_command(0x01); LCD_command(0x80); break;
+            case 1: LCD_data('1'); break;
+            case 2: LCD_data('.'); break;
+            case 3: LCD_data('R'); break;
+            case 4: LCD_data('e'); break;
+            case 5: LCD_data('t'); break;
+            case 6: LCD_data('i'); break;
+            case 7: LCD_data('r'); break;
+            case 8: LCD_data('o'); break;
+            case 9: LCD_data(' '); break;
+            case 10: LCD_data('s'); break;
+            case 11: LCD_data('i'); break;
+            case 12: LCD_data('n'); break;
+            case 13: LCD_data(' '); break;
+            case 14: LCD_data('P'); break;
+            case 15: LCD_data('I'); break;
+            case 16: LCD_data('N'); break;
+            case 17: LCD_command(0x01); LCD_command(0x80); break;
+            case 18: LCD_data('2'); break;
+            case 19: LCD_data('.'); break;
+            case 20: LCD_data('E'); break;
+            case 21: LCD_data('n'); break;
+            case 22: LCD_data('v'); break;
+            case 23: LCD_data('i'); break;
+            case 24: LCD_data('o'); break;
+            case 25: LCD_data(' '); break;
+            case 26: LCD_data('r'); break;
+            case 27: LCD_data('e'); break;
+            case 28: LCD_data('m'); break;
+            case 29: LCD_data('e'); break;
+            case 30: LCD_data('s'); break;
+            case 31: LCD_data('a'); break;
+            case 32: LCD_data('s'); break;
+            case 33: LCD_command(0x01); LCD_command(0x80); break;
+            case 34: LCD_data('3'); break;
+            case 35: LCD_data('.'); break;
+            case 36: LCD_data('C'); break;
+            case 37: LCD_data('o'); break;
+            case 38: LCD_data('n'); break;
+            case 39: LCD_data('s'); break;
+            case 40: LCD_data('u'); break;
+            case 41: LCD_data('l'); break;
+            case 42: LCD_data('t'); break;
+            case 43: LCD_data('a'); break;
+            case 44: LCD_data(' '); break;
+            case 45: LCD_data('s'); break;
+            case 46: LCD_data('a'); break;
+            case 47: LCD_data('l'); break;
+            case 48: LCD_data('d'); break;
+            case 49: LCD_data('o'); break;
+            case 50: lcd_step = 0; break; // Reiniciar al nuevo menú
+            default: break;
+        }
+    }
+
+    lcd_step++; // ⚡ Incrementar SOLO al final
 }
+
+
 
 void TIM21config (void) {
 	RCC->APB2ENR |= (1<<2); //Se encuentra operando a 1s
@@ -244,3 +292,71 @@ void TIM21_IRQHandler() {
 	TIM21->SR &= ~(1<<0);  //Clear UIF flag
 
 }
+
+
+//Funciones de USART2
+void USART2Init(void) {
+	RCC->APB1ENR |= (1<<17); //USART CLK ENABLE
+	RCC->IOPENR |= (1<<0); //GPIOA CLK ENABLE
+	//ALTERNATE FUNCTION PA2(TX) Y PA3(RX)
+	GPIOA->MODER &= ~(1<<4);  //PA2 as AF
+	GPIOA->MODER &= ~(1<<6);  //PA3 as AF
+	GPIOA->AFR[0] |= (1<<10); //PA2 AS  AF4
+	GPIOA->AFR[0] |= (1<<14); //PA3 AS AF4
+	USART2->BRR = 139; //USART2 @115200 bps with 16Mhz clock HSi
+	USART2->CR1 = 0;     // Apagar USART2 primero
+	USART2->ICR = 0xFFFFFFFF; // Limpiar cualquier error previo
+	USART2->CR1 |= (1<<2) | (1<<3); // Habilitar RX y TX
+	USART2->CR1 |= (1<<5);          // Habilitar interrupción por RXNE
+	USART2->CR1 |= (1<<0);          // Habilitar USART2
+	NVIC_EnableIRQ(USART2_IRQn);    // Habilitar interrupción en NVIC
+}
+
+void USART2_write (uint8_t ch)
+{
+	while (!(USART2->ISR & 0X0080)){}
+	USART2->TDR = ch;
+}
+
+uint8_t USART2_read (void)
+{
+	while( !(USART2->ISR & 0x0020) ){}
+	return USART2->RDR;
+}
+
+void USART2_Putstring(uint8_t* stringptr) {
+	while(*stringptr != 0x00) {
+		USART2_write(*stringptr);
+		stringptr++;
+	}
+}
+
+void USART2_PutstringE(uint8_t* stringptr) {
+	while(*stringptr != 0x00) {
+		USART2_write(*stringptr);
+		stringptr++;
+	}
+	USART2_write(0x0A);
+	USART2_write(0x0D);
+}
+
+void USART2_IRQHandler(void) {
+    if (USART2->ISR & (1<<5)) { // RXNE (dato recibido)
+    	uint8_t received = USART2->RDR;
+
+        if (received == '51') {
+        	TIM2->CR1 &= ~(1<<0);    // 🔥 Detener TIM2
+        	TIM2->SR &= ~(1<<0);     // 🔥 Limpiar UIF por si acaso
+        	current_menu = 1;    // Cambiar de
+            lcd_step = 0;
+            // Enviar el nuevo menú por serial
+            USART2_PutstringE("1. Retiro sin PIN");
+            USART2_PutstringE("2. Envio remesas");
+            USART2_PutstringE("3. Consulta saldo");
+            TIM2->CR1 |= (1<<0);
+        }
+    }
+}
+
+
+
