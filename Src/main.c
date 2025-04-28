@@ -33,27 +33,17 @@ void USART2_Putstring(uint8_t* stringptr);
 void USART2_PutstringE(uint8_t* stringptr);
 
 volatile uint8_t display_index = 0;
-#define NUM_4 (0x66)         // 4
-#define NUM_1 ( (1<<1) | (1<<2) )                           // 1
-#define NUM_5 ( (1<<0) | (1<<2) | (1<<3) | (1<<5) | (1<<6) ) // 5
+#define NUM_0
+#define NUM_1 (0x06)  //1
+#define NUM_2 (0x5B)  //2
+#define NUM_3 (0x4F)  //3
+#define NUM_4 (0x66)  //4
+#define NUM_5 (0x6D)  //5
+#define NUM_6 (0x7D)  //6
+#define NUM_7 (0x07)  //7
+#define NUM_8 (0x7F)  //8
+#define NUM_9 (0x67)  //9
 
-
-//Numeros para los displays de 7 segmentos
-void display(uint8_t decode) {
-    switch (decode) {
-        case 0: GPIOB->ODR |= 0x3F; break; // 0
-        case 1: GPIOB->ODR |= 0x06; break; // 1
-        case 2: GPIOB->ODR |= 0x5B; break; // 2
-        case 3: GPIOB->ODR |= 0x4F; break; // 3
-        case 4: GPIOB->ODR |= 0x66; break; // 4
-        case 5: GPIOB->ODR |= 0x6D; break; // 5
-        case 6: GPIOB->ODR |= 0x7D; break; // 6
-        case 7: GPIOB->ODR |= 0x07; break; // 7
-        case 8: GPIOB->ODR |= 0x7F; break; // 8
-        case 9: GPIOB->ODR |= 0x67; break; // 9
-        default: break;
-    }
-}
 
 int main(void)
 {

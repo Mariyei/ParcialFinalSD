@@ -27,25 +27,25 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  11 .ARM.attributes 00000028  00000000  00000000  0000156c  2**0
                   CONTENTS, READONLY
- 12 .debug_info   000008ff  00000000  00000000  00001594  2**0
+ 12 .debug_info   000008dd  00000000  00000000  00001594  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 13 .debug_abbrev 0000029a  00000000  00000000  00001e93  2**0
+ 13 .debug_abbrev 00000298  00000000  00000000  00001e71  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_aranges 000000c8  00000000  00000000  00002130  2**3
+ 14 .debug_aranges 000000c0  00000000  00000000  00002110  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_rnglists 00000090  00000000  00000000  000021f8  2**0
+ 15 .debug_rnglists 00000089  00000000  00000000  000021d0  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_macro  0000b407  00000000  00000000  00002288  2**0
+ 16 .debug_macro  0000b431  00000000  00000000  00002259  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_line   0000095e  00000000  00000000  0000d68f  2**0
+ 17 .debug_line   000008ea  00000000  00000000  0000d68a  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_str    0003d00b  00000000  00000000  0000dfed  2**0
+ 18 .debug_str    0003d01c  00000000  00000000  0000df74  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .comment      00000043  00000000  00000000  0004aff8  2**0
+ 19 .comment      00000043  00000000  00000000  0004af90  2**0
                   CONTENTS, READONLY
- 20 .debug_frame  00000238  00000000  00000000  0004b03c  2**2
+ 20 .debug_frame  00000218  00000000  00000000  0004afd4  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .debug_line_str 00000065  00000000  00000000  0004b274  2**0
+ 21 .debug_line_str 00000065  00000000  00000000  0004b1ec  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -125,9 +125,9 @@ __STATIC_INLINE void __NVIC_EnableIRQ(IRQn_Type IRQn)
  8000138:	e000e100 	.word	0xe000e100
 
 0800013c <main>:
-        default: break;
-    }
-}
+#define NUM_8 (0x7F)  //8
+#define NUM_9 (0x67)  //9
+
 
 int main(void)
 {
