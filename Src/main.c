@@ -329,15 +329,13 @@ void TIM21_IRQHandler() {
 
 //Funciones de USART2
 void USART2Init(void) {
-	/*RCC->APB1ENR |= (1<<17); //USART CLK ENABLE
+	RCC->APB1ENR |= (1<<17); //USART CLK ENABLE
 	RCC->IOPENR |= (1<<0); //GPIOA CLK ENABLE
 	//ALTERNATE FUNCTION PA2(TX) Y PA3(RX)
 	GPIOA->MODER &= ~(1<<4);  //PA2 as AF
 	GPIOA->MODER &= ~(1<<6);  //PA3 as AF
 	GPIOA->AFR[0] |= (1<<10); //PA2 AS  AF4
 	GPIOA->AFR[0] |= (1<<14); //PA3 AS AF4
-
-
 	USART2->BRR = 139; //USART2 @115200 bps with 16Mhz clock HSi
 	USART2->CR1 = 0;     // Apagar USART2 primero
 	//USART2->ICR = 0xFFFFFFFF; // Limpiar cualquier error previo
@@ -345,28 +343,6 @@ void USART2Init(void) {
 	USART2->CR1 |= (1<<5);          // Habilitar interrupción por RXNE
 	USART2->CR1 |= (1<<0);          // Habilitar USART2
 	NVIC_EnableIRQ(USART2_IRQn);    // Habilitar interrupción en NVIC*/
-
-	RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
-	RCC->IOPENR  |= RCC_IOPENR_GPIOAEN;
-
-	/* — PA2 / PA3 a Alternate Function (AF4) — */
-	GPIOA->MODER &= ~(3U << (2*2));   /* PA2 clear */
-	GPIOA->MODER |=  (2U << (2*2));   /* 10 = AF   */
-	GPIOA->MODER &= ~(3U << (2*3));   /* PA3 clear */
-	GPIOA->MODER |=  (2U << (2*3));
-
-	GPIOA->AFR[0] &= ~((0xF << 8) | (0xF << 12));
-	GPIOA->AFR[0] |=  ((4U << 8) | (4U << 12));  /* AF4 para USART2 */
-
-	/* 16 MHz / 115 200 = 138.9 → BRR = 139  (oversampling 16) */
-	USART2->BRR  = 139;
-
-	USART2->CR1  = USART_CR1_RE | USART_CR1_TE | USART_CR1_RXNEIE;
-	USART2->CR1 |= USART_CR1_UE;                 /* USART ON      */
-
-	NVIC_SetPriority(USART2_IRQn, 0);            /* más alto que los timers */
-	NVIC_EnableIRQ(USART2_IRQn);
-
 
 }
 
@@ -399,20 +375,8 @@ void USART2_PutstringE(uint8_t* stringptr) {
 }
 
 void USART2_IRQHandler(void) {
-    /*if (USART2->ISR & (1<<5)) { // RXNE = 1
-        received_char = USART2->RDR; // Leer rápido
-        flag_received = 1;           // Señalar que recibimos algo
-    }*/
-
-	/* Atiende errores primero */
-	    if (USART2->ISR & USART_ISR_ORE) {
-	        (void)USART2->RDR;            /* limpiar ORE + RXNE */
-	        return;
-	    }
-
-	    if (USART2->ISR & USART_ISR_RXNE) {
-	        received_char = USART2->RDR;  /* read + clear RXNE  */
-	        flag_received = 1;
-	    }
-
+    if (USART2->ISR & (1<<5)) { // RXNE = 1
+        received_char = USART2->RDR; // Leer valor de entrada
+        flag_received = 1;           // Se activa la bandera de valor  recibido
+    }
 }

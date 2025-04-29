@@ -10,8 +10,8 @@
 ../Src/main.c:252:6:TIM21config	1
 ../Src/main.c:264:6:TIM21_IRQHandler	15
 ../Src/main.c:331:6:USART2Init	1
-../Src/main.c:373:6:USART2_write	2
-../Src/main.c:379:9:USART2_read	2
-../Src/main.c:385:6:USART2_Putstring	2
-../Src/main.c:392:6:USART2_PutstringE	2
-../Src/main.c:401:6:USART2_IRQHandler	3
+../Src/main.c:349:6:USART2_write	2
+../Src/main.c:355:9:USART2_read	2
+../Src/main.c:361:6:USART2_Putstring	2
+../Src/main.c:368:6:USART2_PutstringE	2
+../Src/main.c:377:6:USART2_IRQHandler	2
