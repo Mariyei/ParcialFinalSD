@@ -19,7 +19,6 @@ volatile uint8_t display_index = 0;
 #define NUM_9 (0x67)  //9
 
 //Funciones a utilizar
-void delay_ms(uint32_t n);
 void LCD_command(unsigned char command);
 void LCD_data(char data);
 void PORTS_init(void);
@@ -30,19 +29,8 @@ void USART2Init();
 //Variables globales
 volatile uint8_t lcd_step = 0; //LCD
 volatile uint8_t current_menu = 0;  // 0 = Menú Principal, 1 = Menú Nuevo; SERIAL
-
-
-void delay_ms(uint32_t n) {
-    for (uint32_t i = 0; i < n; i++) {
-        TIM2->CNT = 0;                // Reiniciar contador
-        while (!(TIM2->SR & 0x0001));  // Esperar que UIF=1
-        TIM2->SR &= ~(1<<0);           // Limpiar UIF
-        while (!(TIM2->SR & 0x0001));  // Esperar otra vez
-        TIM2->SR &= ~(1<<0);           // Limpiar UIF
-    }
-}
-
-
+volatile uint8_t flag_received = 0;
+volatile uint8_t received_char = 0;
 
 int main(void) {
 	//1. Habilitar HSI 16 MHz como SYSCLK
@@ -61,8 +49,9 @@ int main(void) {
     //4. Inicializar USART
     USART2Init();
 
+    __enable_irq();
 
-    //while (1);
+    while (1);
 }
 
 
@@ -98,6 +87,8 @@ void PORTS_init(void) {
     RCC->IOPENR |= (1<<0); //Enable clock GPIOA
     RCC->IOPENR |= (1<<1); //Enable clock GPIOB
 
+    GPIOA->MODER &= ~(1<<11); //Config PB0 como output Salida  0
+
     GPIOB->MODER &= ~(1<<1); //Config PB0 como output Salida  0
 	GPIOB->MODER &= ~(1<<3); //Config PB1 como output Salida  1
 	GPIOB->MODER &= ~(1<<5); //Config PB2 como output Salida  2
@@ -115,19 +106,19 @@ void PORTS_init(void) {
 }
 
 void LCD_INIT(void) {
-    delay_ms(50);  // Esperar estabilización inicial
+	for (volatile int i = 0; i < 40000; i++) __NOP();  // Pausa de 50ms
     LCD_command(0x30);
-    delay_ms(5);
+    for (volatile int i = 0; i < 4000; i++) __NOP();  // Pausa de 5ms
     LCD_command(0x30);
-    delay_ms(1);
+    for (volatile int i = 0; i < 800; i++) __NOP();  // Pausa de 1ms
     LCD_command(0x30);
-    delay_ms(1);
+    for (volatile int i = 0; i < 800; i++) __NOP();  // Pausa de 1ms
     LCD_command(0x38); // 8 bits, 2 líneas
-    delay_ms(1);
+    for (volatile int i = 0; i < 800; i++) __NOP();  // Pausa de 1ms
     LCD_command(0x06); // Modo entrada (incremento)
-    delay_ms(1);
+    for (volatile int i = 0; i < 800; i++) __NOP();  // Pausa de 1ms
     LCD_command(0x01); // Clear Display
-    delay_ms(2);
+    for (volatile int i = 0; i < 1600; i++) __NOP();  // Pausa de 2ms
     LCD_command(0x0C); // Display ON, cursor OFF
 }
 
@@ -135,7 +126,7 @@ void LCD_INIT(void) {
 void TIM2config(void) {
     RCC->APB1ENR |= (1<<0);   // Habilitar reloj a TIM2
     TIM2->PSC = 16000 - 1;    // Prescaler: 16 MHz / 16000 = 1 kHz (1ms)
-    TIM2->ARR = 200 - 1;        // Cada 200 * 1 ms = 200 ms
+    TIM2->ARR = 200 - 1;      // Cada 200 * 1 ms = 200 ms
     TIM2->CNT = 0;
     TIM2->DIER |= (1<<0);     // Habilitar interrupción
     TIM2->CR1 = (1<<0);       // Enable contador
@@ -252,16 +243,36 @@ void TIM2_IRQHandler(void) {
 
 
 void TIM21config (void) {
-	RCC->APB2ENR |= (1<<2); //Se encuentra operando a 1s
+
+	RCC->APB2ENR |= (1<<2); //Se encuentra operando a 2ms
 	TIM21->PSC = 16000-1;
 	TIM21->ARR = 2-1;
 	TIM21->CNT = 0;
 	TIM21->CR1 = (1<<0);
 	TIM21->DIER |= (1<<0);  //Enable Mode Interrupt
+	NVIC_SetPriority(TIM21_IRQn, 2);   /* más bajo que USART */
 	NVIC_EnableIRQ(TIM21_IRQn);
 }
 
 void TIM21_IRQHandler() {
+
+	if (flag_received) {
+	    flag_received = 0; // Limpiar la bandera
+
+	    if (received_char == '3') {
+	        TIM2->CR1 &= ~(1<<0); // Pausar el Timer
+	        current_menu = 1;     // Cambiar al nuevo menú
+	        lcd_step = 0;
+	        LCD_command(0x01);    // Limpiar la pantalla
+	        USART2_PutstringE("1. Retiro sin PIN");
+	        USART2_PutstringE("2. Envio remesas");
+	        USART2_PutstringE("3. Consulta saldo");
+	        TIM2->CR1 |= (1<<0);  // Reanudar el Timer
+	    }
+	}
+
+
+
 	GPIOB->ODR = 0x0000;   // Apagar los displays antes de escribir
     switch (display_index) {
         case 0:
@@ -296,20 +307,45 @@ void TIM21_IRQHandler() {
 
 //Funciones de USART2
 void USART2Init(void) {
-	RCC->APB1ENR |= (1<<17); //USART CLK ENABLE
+	/*RCC->APB1ENR |= (1<<17); //USART CLK ENABLE
 	RCC->IOPENR |= (1<<0); //GPIOA CLK ENABLE
 	//ALTERNATE FUNCTION PA2(TX) Y PA3(RX)
 	GPIOA->MODER &= ~(1<<4);  //PA2 as AF
 	GPIOA->MODER &= ~(1<<6);  //PA3 as AF
 	GPIOA->AFR[0] |= (1<<10); //PA2 AS  AF4
 	GPIOA->AFR[0] |= (1<<14); //PA3 AS AF4
+
+
 	USART2->BRR = 139; //USART2 @115200 bps with 16Mhz clock HSi
 	USART2->CR1 = 0;     // Apagar USART2 primero
-	USART2->ICR = 0xFFFFFFFF; // Limpiar cualquier error previo
+	//USART2->ICR = 0xFFFFFFFF; // Limpiar cualquier error previo
 	USART2->CR1 |= (1<<2) | (1<<3); // Habilitar RX y TX
 	USART2->CR1 |= (1<<5);          // Habilitar interrupción por RXNE
 	USART2->CR1 |= (1<<0);          // Habilitar USART2
-	NVIC_EnableIRQ(USART2_IRQn);    // Habilitar interrupción en NVIC
+	NVIC_EnableIRQ(USART2_IRQn);    // Habilitar interrupción en NVIC*/
+
+	RCC->APB1ENR |= RCC_APB1ENR_USART2EN;
+	RCC->IOPENR  |= RCC_IOPENR_GPIOAEN;
+
+	/* — PA2 / PA3 a Alternate Function (AF4) — */
+	GPIOA->MODER &= ~(3U << (2*2));   /* PA2 clear */
+	GPIOA->MODER |=  (2U << (2*2));   /* 10 = AF   */
+	GPIOA->MODER &= ~(3U << (2*3));   /* PA3 clear */
+	GPIOA->MODER |=  (2U << (2*3));
+
+	GPIOA->AFR[0] &= ~((0xF << 8) | (0xF << 12));
+	GPIOA->AFR[0] |=  ((4U << 8) | (4U << 12));  /* AF4 para USART2 */
+
+	/* 16 MHz / 115 200 = 138.9 → BRR = 139  (oversampling 16) */
+	USART2->BRR  = 139;
+
+	USART2->CR1  = USART_CR1_RE | USART_CR1_TE | USART_CR1_RXNEIE;
+	USART2->CR1 |= USART_CR1_UE;                 /* USART ON      */
+
+	NVIC_SetPriority(USART2_IRQn, 0);            /* más alto que los timers */
+	NVIC_EnableIRQ(USART2_IRQn);
+
+
 }
 
 void USART2_write (uint8_t ch)
@@ -341,22 +377,20 @@ void USART2_PutstringE(uint8_t* stringptr) {
 }
 
 void USART2_IRQHandler(void) {
-    if (USART2->ISR & (1<<5)) { // RXNE (dato recibido)
-    	uint8_t received = USART2->RDR;
+    /*if (USART2->ISR & (1<<5)) { // RXNE = 1
+        received_char = USART2->RDR; // Leer rápido
+        flag_received = 1;           // Señalar que recibimos algo
+    }*/
 
-        if (received == '51') {
-        	TIM2->CR1 &= ~(1<<0);    // 🔥 Detener TIM2
-        	TIM2->SR &= ~(1<<0);     // 🔥 Limpiar UIF por si acaso
-        	current_menu = 1;    // Cambiar de
-            lcd_step = 0;
-            // Enviar el nuevo menú por serial
-            USART2_PutstringE("1. Retiro sin PIN");
-            USART2_PutstringE("2. Envio remesas");
-            USART2_PutstringE("3. Consulta saldo");
-            TIM2->CR1 |= (1<<0);
-        }
-    }
+	/* Atiende errores primero */
+	    if (USART2->ISR & USART_ISR_ORE) {
+	        (void)USART2->RDR;            /* limpiar ORE + RXNE */
+	        return;
+	    }
+
+	    if (USART2->ISR & USART_ISR_RXNE) {
+	        received_char = USART2->RDR;  /* read + clear RXNE  */
+	        flag_received = 1;
+	    }
+
 }
-
-
-
