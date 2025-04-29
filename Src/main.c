@@ -23,6 +23,7 @@ void LCD_command(unsigned char command);
 void LCD_data(char data);
 void PORTS_init(void);
 void TIM2config(void);
+void TIM21config(void);
 void USART2config();
 void USART2Init();
 
@@ -31,6 +32,11 @@ volatile uint8_t lcd_step = 0; //LCD
 volatile uint8_t current_menu = 0;  // 0 = Menú Principal, 1 = Menú Nuevo; SERIAL
 volatile uint8_t flag_received = 0;
 volatile uint8_t received_char = 0;
+
+//LED temporal
+#define LED_PIN (1<<5)          /* PA5 - LED */
+volatile uint8_t led_ticks = 0;   /* 1 tick = 2 ms */
+
 
 int main(void) {
 	//1. Habilitar HSI 16 MHz como SYSCLK
@@ -87,7 +93,7 @@ void PORTS_init(void) {
     RCC->IOPENR |= (1<<0); //Enable clock GPIOA
     RCC->IOPENR |= (1<<1); //Enable clock GPIOB
 
-    GPIOA->MODER &= ~(1<<11); //Config PB0 como output Salida  0
+    GPIOA->MODER &= ~(1<<11); //Config PA5 como output Salida  0
 
     GPIOB->MODER &= ~(1<<1); //Config PB0 como output Salida  0
 	GPIOB->MODER &= ~(1<<3); //Config PB1 como output Salida  1
@@ -180,6 +186,7 @@ void TIM2_IRQHandler(void) {
         }
     }
     else if (current_menu == 1) {
+
         // Menú secundario (cuando recibes '3')
         switch (lcd_step) {
             case 0: LCD_command(0x01); LCD_command(0x80); break;
@@ -257,21 +264,36 @@ void TIM21config (void) {
 void TIM21_IRQHandler() {
 
 	if (flag_received) {
-	    flag_received = 0; // Limpiar la bandera
+	        flag_received = 0;
 
-	    if (received_char == '3') {
-	        TIM2->CR1 &= ~(1<<0); // Pausar el Timer
-	        current_menu = 1;     // Cambiar al nuevo menú
-	        lcd_step = 0;
-	        LCD_command(0x01);    // Limpiar la pantalla
-	        USART2_PutstringE("1. Retiro sin PIN");
-	        USART2_PutstringE("2. Envio remesas");
-	        USART2_PutstringE("3. Consulta saldo");
-	        TIM2->CR1 |= (1<<0);  // Reanudar el Timer
+	        if (current_menu == 0 && received_char == '3') {      /* entra sub-menú */
+	            current_menu = 1;
+	            lcd_step     = 0;
+	            TIM2->CNT    = 0;
+	            USART2_PutstringE("\r\n1. Retiro sin PIN");
+	            USART2_PutstringE("2. Envio remesas");
+	            USART2_PutstringE("3. Consulta saldo");
+	        }
+	        else if (current_menu == 1) {                         /* ya en sub-menú */
+	            switch (received_char) {
+	                case '1':
+	                case '2':
+	                case '3':
+	                    GPIOA->ODR |= LED_PIN;    /* LED ON                */
+	                    led_ticks   = 50;         /* 50 × 2 ms = 100 ms     */
+	                    current_menu = 0;         /* volver al menú 0       */
+	                    lcd_step     = 0;
+	                    break;
+	                default: /* ignorar */;
+	            }
+	        }
 	    }
-	}
 
-
+	    /* ---------- temporizador LED ---------- */
+	    if (led_ticks) {
+	        if (--led_ticks == 0)
+	            GPIOA->ODR &= ~LED_PIN;            /* LED OFF */
+	    }
 
 	GPIOB->ODR = 0x0000;   // Apagar los displays antes de escribir
     switch (display_index) {
