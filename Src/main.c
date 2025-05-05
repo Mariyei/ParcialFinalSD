@@ -53,13 +53,13 @@ void USART1_IRQHandler(void);
 void USART2_IRQHandler(void);
 void configureGSMForSMS(void);
 
-//Variables globales
+//Variables globales de la LCD
 volatile uint8_t lcd_step = 0; //LCD
 volatile uint8_t current_menu = 0;  // 0 = Menú Principal, 1 = Menú Nuevo; SERIAL
 volatile uint8_t received_char = 0;
 
 //LED temporal
-#define LED_PIN (1<<5)          /* PA5 - LED */
+#define LED_PIN (1<<5)          /* PA5 - LED */ //LED de la placa
 volatile uint8_t led_ticks = 0;   /* 1 tick = 2 ms */
 
 int main(void) {
@@ -76,8 +76,8 @@ int main(void) {
     LCD_INIT();
 
     // 4. Inicializar USART1 y USART2
-	USART1_Init();
-	USART2Init();
+	USART1_Init(); // PA3 y PA4
+	USART2Init(); //  Solo para el serial
 
 	//Configuración inicial del módulo
 	configureGSMForSMS();
@@ -88,7 +88,7 @@ int main(void) {
 
 }
 
-//Envia comando al LCD
+//Envia comando al LCD PC4 a PC11 PC4-D0, PC5-D1 PC11-D7
 void LCD_command(unsigned char command) {
     GPIOC->BSRR = (RS | RW) << 16; // RS=0, RW=0
     GPIOC->ODR &= ~(0xFF0);
@@ -123,25 +123,19 @@ void PORTS_init(void) {
     GPIOA->MODER &= ~(1<<11); //Config PA5 como output Salida  0
     GPIOA->MODER &= ~(1 << 25);   // Configurar PA12 como salida
 
-
-    GPIOB->MODER &= ~(1<<1); //Config PB0 como output Salida  0
-	GPIOB->MODER &= ~(1<<3); //Config PB1 como output Salida  1
-	GPIOB->MODER &= ~(1<<5); //Config PB2 como output Salida  2
-	GPIOB->MODER &= ~(1<<7); //Config PB3 como output Salida  3
-	GPIOB->MODER &= ~(1<<9); //Config PB4 como output Salida  4
-	GPIOB->MODER &= ~(1<<11); //Config PB5 como output Salida 5
-	GPIOB->MODER &= ~(1<<13); //Config PB6 como output Salida 6
-	GPIOB->MODER &= ~(1<<15); //Config PB7 como output (Push 1)
-	GPIOB->MODER &= ~(1<<17); //Config PB8 como output (Push 2)
-	GPIOB->MODER &= ~(1<<19); //Config PB9 como output (Push 3)
-	GPIOB->MODER &= ~(1<<21); //Config PB10 como output (Push 4)
-	GPIOB->MODER &= ~(1<<23); //Config PB11 como output (Push 4)
-	GPIOB->MODER &= ~(1<<25); //Config PB12 como output (Push 4)
-
-
-
-	//GPIOC->MODER &= ~(1<<25); //Config PC12 como output (Push 4)
-
+    GPIOB->MODER &= ~(1<<1); //Config PB0 como output Salida  0 a
+	GPIOB->MODER &= ~(1<<3); //Config PB1 como output Salida  1 b
+	GPIOB->MODER &= ~(1<<5); //Config PB2 como output Salida  2 c
+	GPIOB->MODER &= ~(1<<7); //Config PB3 como output Salida  3 d
+	GPIOB->MODER &= ~(1<<9); //Config PB4 como output Salida  4 e
+	GPIOB->MODER &= ~(1<<11); //Config PB5 como output Salida 5 f
+	GPIOB->MODER &= ~(1<<13); //Config PB6 como output Salida 6 g
+	GPIOB->MODER &= ~(1<<15); //Config PB7 como output (Push 1) 1
+	GPIOB->MODER &= ~(1<<17); //Config PB8 como output (Push 2) 2
+	GPIOB->MODER &= ~(1<<19); //Config PB9 como output (Push 3) 3
+	GPIOB->MODER &= ~(1<<21); //Config PB10 como output (Push 4) 4
+	GPIOB->MODER &= ~(1<<23); //Config PB11 como output (Push 4) 5
+	GPIOB->MODER &= ~(1<<25); //Config PB12 como output (Push 4) 6
 }
 
 void LCD_INIT(void) {
@@ -268,7 +262,8 @@ void TIM2_IRQHandler(void) {
             case 47: LCD_data('l'); break;
             case 48: LCD_data('d'); break;
             case 49: LCD_data('o'); break;
-            case 50: lcd_step = 0; break; // Reiniciar al nuevo menú
+            case 50: LCD_command(0x01); LCD_command(0x80); break;
+            case 51: lcd_step = 0; break; // Reiniciar al nuevo menú
             default: break;
         }
     }
@@ -292,11 +287,12 @@ void TIM2_IRQHandler(void) {
                 case 13: LCD_data('A'); break;
                 case 14: LCD_data('N'); break;
                 case 15: LCD_data('T'); break;
-                case 16: LCD_data('D'); break;
-                case 17: LCD_data('A'); break;
-                case 18: LCD_data('D'); break;
-                case 19: LCD_command(0x01); LCD_command(0x80); break;
-                case 20: lcd_step = 0; break;
+                case 16: LCD_data('I'); break;
+                case 17: LCD_data('D'); break;
+                case 18: LCD_data('A'); break;
+                case 19: LCD_data('D'); break;
+                case 20: LCD_command(0x01); LCD_command(0x80); break;
+                case 21: lcd_step = 0; break;
                 default: break;
             }
         }
@@ -316,14 +312,13 @@ void TIM2_IRQHandler(void) {
 }
 
 void TIM21config (void) {
-
 	RCC->APB2ENR |= (1<<2); //Se encuentra operando a 2ms
 	TIM21->PSC = 16000-1;
 	TIM21->ARR = 2-1;
 	TIM21->CNT = 0;
 	TIM21->CR1 = (1<<0);
 	TIM21->DIER |= (1<<0);  //Enable Mode Interrupt
-	NVIC_SetPriority(TIM21_IRQn, 2);   /* más bajo que USART */
+	NVIC_SetPriority(TIM21_IRQn, 2);   /* más bajo que USART2 */
 	NVIC_EnableIRQ(TIM21_IRQn);
 }
 
@@ -344,7 +339,7 @@ void TIM21_IRQHandler() {
 			{
 				GPIOA->ODR |= LED_PIN;    /* LED ON                */
 				GPIOA->ODR |= (1 << 12);
-				led_ticks   = 20000000;         /* 50 × 2 ms = 100 ms    */
+				led_ticks   = 10000000;         /* 50 × 2 ms = 100 ms    */
 				current_menu = 0;         /* volver al menú 0      */
 				lcd_step     = 0;
 			}
@@ -352,7 +347,7 @@ void TIM21_IRQHandler() {
 			else if (received_char_USART2 == '2') {
 				GPIOA->ODR |= LED_PIN;    /* LED ON                */
 				GPIOA->ODR |= (1 << 12);
-				led_ticks   = 20000000;         /* 50 × 2 ms = 100 ms    */
+				led_ticks   = 10000000;         /* 50 × 2 ms = 100 ms    */
 				current_menu = 0;         /* volver al menú 0      */
 				lcd_step     = 0;
 			}
@@ -360,7 +355,7 @@ void TIM21_IRQHandler() {
 				GPIOA->ODR |= LED_PIN;    /* LED ON                */
 				GPIOA->ODR |= (1 << 12);
 				menu_state = 1;
-				led_ticks   = 2000000;         /* 50 × 2 ms = 100 ms    */
+				led_ticks   = 1000000;         /* 50 × 2 ms = 100 ms    */
 				current_menu = 0;         /* volver al menú 0      */
 				lcd_step     = 0;
 
